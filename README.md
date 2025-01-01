@@ -40,19 +40,15 @@ Before we run the project, make sure that you are having MongoDB in your local s
 ![image](https://user-images.githubusercontent.com/57321948/193536973-4530fe7d-5509-4609-bfd2-cd702fc82423.png)
 
 
-### Step 1: Clone the repository
-```bash
-git clone https://github.com/sethusaim/Sensor-Fault-Detection.git
-```
 
 ### Step 2- Create a conda environment after opening the repository
 
-```bash
-conda create -n sensor python=3.7.6 -y
+```conda
+conda create -n venv python=3.7.6 -y
 ```
 
-```bash
-conda activate sensor
+```conda
+conda activate venv/
 ```
 
 ### Step 3 - Install the requirements
@@ -77,18 +73,12 @@ export MONGODB_URL="mongodb+srv://<username>:<password>@ineuron-ai-projects.7eh1
 python app.py
 ```
 
-### Step 6. Train application
-```bash
-http://localhost:8080/train
-
+### Step 6. Train/Prediction application
+```conda
+(http://127.0.0.1:8080/docs#/default/train_route_train_get)
 ```
 
-### Step 7. Prediction application
-```bash
-http://localhost:8080/predict
-
 ```
-
 ## Run locally
 
 1. Check if the Dockerfile is available in the project directory

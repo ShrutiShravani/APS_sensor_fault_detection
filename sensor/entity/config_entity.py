@@ -30,6 +30,7 @@ class DataIngestionConfig:
 
 
 
+
 class DataValidationConfig:
 
 
@@ -48,6 +49,8 @@ class DataValidationConfig:
         )
 
 
+
+
 class DataTransformationConfig:
     def __init__(self,training_pipeline_config:TrainingPipelineConfig):
         self.data_transformation_dir: str = os.path.join( training_pipeline_config.artifact_dir,training_pipeline.DATA_TRANSFORMATION_DIR_NAME )
@@ -57,6 +60,8 @@ class DataTransformationConfig:
             training_pipeline.TEST_FILE_NAME.replace("csv", "npy"), )
         self.transformed_object_file_path: str = os.path.join( self.data_transformation_dir, training_pipeline.DATA_TRANSFORMATION_TRANSFORMED_OBJECT_DIR,
             training_pipeline.PREPROCSSING_OBJECT_FILE_NAME,)
+
+
 
 class ModelTrainerConfig:
 
@@ -72,6 +77,7 @@ class ModelTrainerConfig:
         self.expected_accuracy: float = training_pipeline.MODEL_TRAINER_EXPECTED_SCORE
         self.overfitting_underfitting_threshold = training_pipeline.MODEL_TRAINER_OVER_FIITING_UNDER_FITTING_THRESHOLD
 
+
 class ModelEvaluationConfig:
 
     def __init__(self,training_pipeline_config:TrainingPipelineConfig):
@@ -80,6 +86,7 @@ class ModelEvaluationConfig:
         )
         self.report_file_path = os.path.join(self.model_evaluation_dir,training_pipeline.MODEL_EVALUATION_REPORT_NAME)
         self.change_threshold = training_pipeline.MODEL_EVALUATION_CHANGED_THRESHOLD_SCORE
+
 
 class ModelPusherConfig:
 

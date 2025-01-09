@@ -61,7 +61,7 @@ class TrainPipeline:
             return model_trainer_artifact
         except  Exception as e:
             raise  SensorException(e,sys)
-        
+
     def start_model_evaluation(self,data_validation_artifact:DataValidationArtifact,
                                  model_trainer_artifact:ModelTrainerArtifact,
                                 ):
@@ -72,7 +72,7 @@ class TrainPipeline:
             return model_eval_artifact
         except  Exception as e:
             raise  SensorException(e,sys)
-    
+
     def start_model_pusher(self,model_eval_artifact:ModelEvaluationArtifact):
         try:
             model_pusher_config = ModelPusherConfig(training_pipeline_config=self.training_pipeline_config)
@@ -88,5 +88,9 @@ class TrainPipeline:
             data_validation_artifact=self.start_data_validaton(data_ingestion_artifact=data_ingestion_artifact)
             data_transformation_artifact=self.start_data_transformation(data_validation_artifact=data_validation_artifact)
             model_trainer_artifact = self.start_model_trainer(data_transformation_artifact)
+            model_eval_artifact = self.start_model_evaluation(data_validation_artifact, model_trainer_artifact)
+            if not model_eval_artifact.is_model_accepted:
+                raise Exception("Trained model is not better than the best model")
+            model_pusher_artifact = self.start_model_pusher(model_eval_artifact)
         except Exception as e:
             raise SensorException(e,sys)

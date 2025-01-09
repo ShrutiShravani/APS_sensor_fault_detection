@@ -18,4 +18,5 @@ neuro-mf==0.0.5
 scikit-learn==1.1.3
 PyYAML
 scipy
--e .
+#-e .
+

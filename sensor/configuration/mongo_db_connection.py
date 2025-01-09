@@ -14,8 +14,6 @@ class MongoDBClient:
                 mongo_db_url=os.getenv(MONGODB_URL_KEY)
                 if not mongo_db_url:
                      raise ValueError("MongoDB URL is not set in the environment variable.")
-                if "localhost" in mongo_db_url:
-                    MongoDBClient.client= pymongo.MongoClient(mongo_db_url)
                 else:
                     MongoDBClient.client=pymongo.MongoClient(mongo_db_url,tlsCAFile=ca)
                 self.client= MongoDBClient.client

@@ -1,13 +1,13 @@
+from distutils import dir_util
+from sensor.constant.training_pipeline import SCHEMA_FILE_PATH
+from sensor.entity.artifact_entity import DataIngestionArtifact, DataValidationArtifact
+from sensor.entity.config_entity import DataValidationConfig
 from sensor.exception import SensorException
 from sensor.logger import logging
-import os,sys
-from sensor.entity.artifact_entity import DataIngestionArtifact,DataValidationArtifact
-from sensor.entity.config_entity import DataValidationConfig
-import pandas as pd
 from sensor.utils.main_utils import read_yaml_file,write_yaml_file
-from sensor.constant.training_pipeline import SCHEMA_FILE_PATH
 from scipy.stats import ks_2samp
-
+import pandas as pd
+import os,sys
 class DataValidation:
 
     def __init__(self,data_ingestion_artifact:DataIngestionArtifact,
@@ -28,7 +28,7 @@ class DataValidation:
             number_of_columns = len(self._schema_config["columns"])
             logging.info(f"Required number of columns: {number_of_columns}")
             logging.info(f"Data frame has columns: {len(dataframe.columns)}")
-            if len(dataframe.columns)==number_of_columns:
+            if len(dataframe.columns)==(number_of_columns):
                 return True
             return False
         except Exception as e:

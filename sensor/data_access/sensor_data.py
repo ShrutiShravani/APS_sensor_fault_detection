@@ -47,6 +47,7 @@ class SensorData:
             return pd.DataFrame of collection
             """
             if database_name is None:
+                database_name = "shruti"
                 collection = self.mongo_client.database[collection_name]
             else:
                 collection = self.mongo_client[database_name][collection_name]

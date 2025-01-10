@@ -11,6 +11,8 @@ from sensor.ml.model.estimator import ModelResolver
 from sensor.constant.training_pipeline import TARGET_COLUMN
 from sensor.ml.model.estimator import TargetValueMapping
 import pandas  as  pd
+
+
 class ModelEvaluation:
 
 
@@ -52,7 +54,7 @@ class ModelEvaluation:
                     improved_accuracy=None, 
                     best_model_path=None, 
                     trained_model_path=train_model_file_path, 
-                    train_model_metric_artifact=self.model_trainer_artifact.test_metric_artifact, 
+                    train_model_metric_artifact=self.model_trainer_artifact.train_metric_artifact, 
                     best_model_metric_artifact=None)
                 logging.info(f"Model evaluation artifact: {model_evaluation_artifact}")
                 return model_evaluation_artifact
@@ -66,6 +68,7 @@ class ModelEvaluation:
 
             trained_metric = get_classification_score(y_true, y_trained_pred)
             latest_metric = get_classification_score(y_true, y_latest_pred)
+        
 
             improved_accuracy = trained_metric.f1_score-latest_metric.f1_score
             if self.model_eval_config.change_threshold < improved_accuracy:

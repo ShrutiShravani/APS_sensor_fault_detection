@@ -11,9 +11,8 @@ def get_classification_score(y_true,y_pred) ->ClassificationMetricArtifact:
         model_recall_score =recall_score(y_true,y_pred)
 
         classfication_metric=ClassificationMetricArtifact(f1_score=model_f1_score,precision_score=model_precision_score,recall_score=model_recall_score)
-
+        
         return classfication_metric
-
     except Exception as e:
         raise SensorException(e,sys)
 

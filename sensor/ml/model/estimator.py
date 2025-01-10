@@ -33,7 +33,11 @@ class SensorModel:
             return y_hat
         except Exception as e:
             raise e
-    
+    def predict_proba(self, X):
+        # Apply the preprocessor and get probability predictions
+        x_transform = self.preprocessor.transform(X)
+        y_hat=self.model.predict_proba(x_transform)
+        return y_hat
 
 class ModelResolver:
 

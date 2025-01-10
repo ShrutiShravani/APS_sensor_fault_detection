@@ -9,6 +9,7 @@ from xgboost import XGBClassifier
 from sensor.ml.metric.classification_metric import get_classification_score
 from sensor.ml.model.estimator import SensorModel
 from sensor.utils.main_utils import save_object,load_object
+from sklearn.metrics import f1_score,precision_score,recall_score,accuracy_score
 class ModelTrainer:
 
     def __init__(self,model_trainer_config:ModelTrainerConfig,
@@ -26,6 +27,16 @@ class ModelTrainer:
             return xgb_clf
         except Exception as e:
             raise e
+        
+    def adjust_threshold(self,probabilities,threshold=0.5):
+        """
+        Adjust the threshold for classification. 
+        :param probabilities: The predicted probabilities for the positive class.
+        :param threshold: The threshold to classify as positive (default is 0.5).
+        :return: Adjusted predictions.
+        """
+        return (probabilities[:, 1] > threshold).astype(int)
+
     
     def initiate_model_trainer(self)->ModelTrainerArtifact:
         try:
@@ -46,6 +57,13 @@ class ModelTrainer:
             model = self.train_model(x_train, y_train)
             y_train_pred = model.predict(x_train)
             classification_train_metric =  get_classification_score(y_true=y_train, y_pred=y_train_pred)
+            acc = accuracy_score(y_train, y_train_pred) # Calculate Accuracy
+            f1 = f1_score(y_train, y_train_pred) # Calculate F1-score
+            precision = precision_score(y_train, y_train_pred) # Calculate Precision
+            recall = recall_score(y_train, y_train_pred)  # Calculate Recall
+
+            print(f"train_score:{acc,f1,precision,recall}")
+
             
             if classification_train_metric.f1_score<=self.model_trainer_config.expected_accuracy:
                 raise Exception("Trained model is not good to provide expected accuracy")
@@ -53,6 +71,12 @@ class ModelTrainer:
             y_test_pred = model.predict(x_test)
             classification_test_metric = get_classification_score(y_true=y_test, y_pred=y_test_pred)
 
+            acc = accuracy_score(y_test, y_test_pred) # Calculate Accuracy
+            f1 = f1_score(y_test, y_test_pred) # Calculate F1-score
+            precision = precision_score(y_test, y_test_pred) # Calculate Precision
+            recall = recall_score(y_test, y_test_pred)  # Calculate Recall
+
+            print(f"test_score:{acc,f1,precision,recall}")
 
             #Overfitting and Underfitting
             diff = abs(classification_train_metric.f1_score-classification_test_metric.f1_score)

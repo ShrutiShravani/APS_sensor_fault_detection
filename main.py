@@ -107,7 +107,7 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
 
         # Ensure the DataFrame has the correct columns in order
             df = df[expected_features]
-            input_arr = preprocessor.transform(df[expected_features]) 
+            input_arr = preprocessor.transform(df) 
 
         # Transform the input features
 

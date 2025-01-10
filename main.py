@@ -6,8 +6,7 @@ from sensor.pipeline import training_pipeline
 from sensor.pipeline.training_pipeline import TrainPipeline
 import os
 from sensor.utils.main_utils import read_yaml_file
-from sensor.constant.training_pipeline import SAVED_MODEL_DIR,PREPROCSSING_OBJECT_FILE_NAME
-from fastapi import FastAPI, File, UploadFile
+from sensor.constant.training_pipeline import SAVED_MODEL_DIR
 from sensor.constant.application import APP_HOST, APP_PORT
 from starlette.responses import RedirectResponse
 from uvicorn import run as app_run
@@ -25,7 +24,8 @@ from io import BytesIO
 import joblib
 from sensor.ml.model.estimator import SensorModel
 from sensor.entity.config_entity import DataTransformationConfig,TrainingPipelineConfig
-from xgboost import XGBClassifier
+
+
 app = FastAPI()
 origins = ["*"]
 
@@ -37,18 +37,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-def adjust_threshold(self,probabilities,threshold=0.5):
-        """
-        Adjust the threshold for classification. 
-        :param probabilities: The predicted probabilities for the positive class.
-        :param threshold: The threshold to classify as positive (default is 0.5).
-        :return: Adjusted predictions.
-        """
-        return (probabilities[:, 1] > threshold).astype(int)
 
 @app.get("/", tags=["authentication"])
 async def index():
     return RedirectResponse(url="/docs")
+
 
 @app.get("/train")
 async def train_route():
@@ -60,7 +53,6 @@ async def train_route():
         return Response("Training successful !!")
     except Exception as e:
         return Response(f"Error Occurred! {e}")
-
 
 @app.post("/predict")
 async def predict_route(request: Request, file: UploadFile = File(...)):
@@ -106,7 +98,7 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
         # Load the preprocessor object using the path
             preprocessor = load_object(preprocessor_path)
             expected_features = preprocessor.feature_names_in_ 
-             # For consistency
+           # For consistency
 
         # Align columns with preprocessor
             for col in expected_features:
@@ -115,6 +107,7 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
 
         # Ensure the DataFrame has the correct columns in order
             df = df[expected_features]
+            input_arr = preprocessor.transform(df[expected_features]) 
 
         # Transform the input features
 
@@ -141,12 +134,14 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
         # Make predictions using the model
         try:
             sensor_model = SensorModel(preprocessor=preprocessor, model=model)  # Create instance of SensorModel
-            y_pred_prob = sensor_model.predict_proba(df)
+            y_pred_prob = sensor_model.predict_proba(input_arr)
 
         # Adjust threshold (for example, set it to 0.3)
             threshold = 0.3
             y_pred_class= (y_pred_prob[:, 1] > threshold).astype(int)
-            
+            target_encoder = TargetValueMapping()
+            reverse_map = target_encoder.reverse_mapping()
+            cat_prediction = [reverse_map[value] for value in y_pred_class]
         except Exception as e:
             logging.error(f"Prediction failed: {e}")
             return Response(content="Error during prediction.", status_code=500)
@@ -154,10 +149,10 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
         # Update DataFrame with predictions
         df['predicted_probabilities'] = y_pred_prob[:, 1] 
         df['predicted_column'] = y_pred_class
+        df['cat_pred']=cat_prediction
         # Convert DataFrame to HTML for the response
         return Response(content=df.to_csv(), media_type="text/csv")
-        
+    
 
-   
 if __name__=="__main__":
     app_run(app, host=APP_HOST, port=APP_PORT)

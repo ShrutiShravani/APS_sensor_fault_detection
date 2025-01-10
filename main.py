@@ -6,7 +6,7 @@ from sensor.pipeline import training_pipeline
 from sensor.pipeline.training_pipeline import TrainPipeline
 import os
 from sensor.utils.main_utils import read_yaml_file
-from sensor.constant.training_pipeline import SAVED_MODEL_DIR,DATA_TRANSFORMATION_TRANSFORMED_OBJECT_DIR
+from sensor.constant.training_pipeline import SAVED_MODEL_DIR,PREPROCSSING_OBJECT_FILE_NAME
 from fastapi import FastAPI, File, UploadFile
 from sensor.constant.application import APP_HOST, APP_PORT
 from starlette.responses import RedirectResponse
@@ -21,15 +21,10 @@ from fastapi import FastAPI, File, UploadFile, Request
 import io
 from sensor.constant import *
 import numpy as np
-from datetime import datetime
-from imblearn.combine import SMOTETomek
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import RobustScaler
-from sklearn.pipeline import Pipeline
 from io import BytesIO
 import joblib
 from sensor.ml.model.estimator import SensorModel
-import time
+from sensor.entity.config_entity import DataTransformationConfig,TrainingPipelineConfig
 
 app = FastAPI()
 origins = ["*"]
@@ -92,7 +87,17 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
         try:
             # Drop the target column (if it exists) and apply transformation
             #input_features_df = df.drop(columns=["TARGET_COLUMN"], axis=1, errors='ignore')
-            preprocessor = joblib.load(r"artifact\01_09_2025_23_44_07\data_transformation\transformed_object\preprocessing.pkl")
+    
+        # Load the DataTransformationConfig to get the preprocessor file path
+            training_pipeline_config = TrainingPipelineConfig()
+
+            data_transformation_config = DataTransformationConfig(training_pipeline_config=training_pipeline_config)
+        
+        # Get the path to the preprocessing object (preprocessor.pkl)
+            preprocessor_path = data_transformation_config.transformed_object_file_path
+
+        # Load the preprocessor object using the path
+            preprocessor = load_object(preprocessor_path)
             expected_features = preprocessor.feature_names_in_  # For consistency
 
         # Align columns with preprocessor
@@ -137,7 +142,7 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
         df['predicted_column'] = y_pred
 
         # Convert DataFrame to HTML for the response
-        return Response(content=df.to_csv(), media_type="text/html")
+        return Response(content=df.to_csv(), media_type="text/csv")
         
 
    

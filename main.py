@@ -19,6 +19,16 @@ import os
 import pandas as pd
 from fastapi import FastAPI, File, UploadFile, Request
 import io
+from sensor.entity.config_entity import DataTransformationConfig,TrainingPipelineConfig
+from sensor.constant import *
+import numpy as np
+from datetime import datetime
+from imblearn.combine import SMOTETomek
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import RobustScaler
+from sklearn.pipeline import Pipeline
+from io import BytesIO
+import joblib
 
 app = FastAPI()
 origins = ["*"]
@@ -48,6 +58,21 @@ async def train_route():
     except Exception as e:
         return Response(f"Error Occurred! {e}")
 
+def get_data_transformer_object() -> Pipeline:
+    try:
+        robust_scaler = RobustScaler()
+        simple_imputer = SimpleImputer(strategy="constant", fill_value=0)
+        preprocessor = Pipeline(
+            steps=[
+                ("Imputer", simple_imputer),  # Replace missing values with zero
+                ("RobustScaler", robust_scaler)  # Scale features and handle outliers
+            ]
+        )
+        return preprocessor
+    except Exception as e:
+        raise Exception(f"Error in data transformation: {e}") from e
+
+
 @app.post("/predict")
 async def predict_route(request: Request, file: UploadFile = File(...)):
     try:
@@ -60,14 +85,40 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
         binary_file = await file.read()
 
         # Use io.BytesIO to convert binary data to a file-like object
-        file_like_object = io.BytesIO(binary_file)
+        file_like_object = BytesIO(binary_file)
+
+         # Check if file is empty
+        if file_like_object.getbuffer().nbytes == 0:
+            logging.error("Uploaded file is empty.")
+            return Response(content="Uploaded file is empty.", status_code=400)
         
+
         # Read the CSV file into a DataFrame
         try:
             df = pd.read_csv(file_like_object)
+            if df is None or df.empty:
+                logging.error("Uploaded file is empty or invalid.")
+                return Response(content="Uploaded file is empty or invalid.", status_code=400)
+            df=df.replace(['na', 'NaN', 'N/A', ''], np.nan, inplace=True)
+    
         except Exception as e:
             logging.error(f"Failed to read CSV file: {e}")
             return Response(content="Error reading the CSV file.", status_code=500)
+
+        try:
+            # Drop the target column (if it exists) and apply transformation
+            #input_features_df = df.drop(columns=["TARGET_COLUMN"], axis=1, errors='ignore')
+            preprocessor = get_data_transformer_object()
+            if preprocessor is None:
+                 logging.error("Failed to initialize data transformer object.")
+                 return Response(content="Error initializing data transformer.", status_code=500)
+            preprocessor_object = preprocessor.fit(df)
+            transformed_input_features = preprocessor_object.transform(df)
+            logging.info(f"Transformed input shape: {transformed_input_features.shape}")
+        except Exception as e:
+            logging.error(f"Failed to apply data transformation: {e}")
+            return Response(content="Error applying data transformation.", status_code=500)
+        
 
         # Initialize ModelResolver to load the best model
         model_resolver = ModelResolver(model_dir=SAVED_MODEL_DIR)
@@ -76,7 +127,7 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
             return Response(content="Model is not available", status_code=404)
 
         best_model_path = model_resolver.get_best_model_path()
-        
+
         try:
             model = load_object(file_path=best_model_path)
         except Exception as e:
@@ -85,16 +136,13 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
 
         # Make predictions using the model
         try:
-            y_pred = model.predict(df)
+            y_pred = model.predict(transformed_input_features)
         except Exception as e:
             logging.error(f"Prediction failed: {e}")
             return Response(content="Error during prediction.", status_code=500)
 
         # Update DataFrame with predictions
         df['predicted_column'] = y_pred
-
-        # Reverse mapping of target values if necessary
-        df['predicted_column'].replace(TargetValueMapping().reverse_mapping(), inplace=True)
 
         # Convert DataFrame to HTML for the response
         return Response(content=df.to_html(), media_type="text/html")
@@ -104,6 +152,4 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
         return Response(content=f"Unexpected error occurred: {str(e)}", status_code=500)
 
 if __name__=="__main__":
-    #main()
-    # set_env_variable(env_file_path)
     app_run(app, host=APP_HOST, port=APP_PORT)

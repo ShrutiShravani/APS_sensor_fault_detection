@@ -6,7 +6,7 @@ from sensor.pipeline import training_pipeline
 from sensor.pipeline.training_pipeline import TrainPipeline
 import os
 from sensor.utils.main_utils import read_yaml_file
-from sensor.constant.training_pipeline import SAVED_MODEL_DIR
+from sensor.constant.training_pipeline import SAVED_MODEL_DIR,DATA_TRANSFORMATION_TRANSFORMED_OBJECT_DIR
 from fastapi import FastAPI, File, UploadFile
 from sensor.constant.application import APP_HOST, APP_PORT
 from starlette.responses import RedirectResponse
@@ -19,7 +19,6 @@ import os
 import pandas as pd
 from fastapi import FastAPI, File, UploadFile, Request
 import io
-from sensor.entity.config_entity import DataTransformationConfig,TrainingPipelineConfig
 from sensor.constant import *
 import numpy as np
 from datetime import datetime
@@ -29,6 +28,8 @@ from sklearn.preprocessing import RobustScaler
 from sklearn.pipeline import Pipeline
 from io import BytesIO
 import joblib
+from sensor.ml.model.estimator import SensorModel
+import time
 
 app = FastAPI()
 origins = ["*"]
@@ -58,63 +59,53 @@ async def train_route():
     except Exception as e:
         return Response(f"Error Occurred! {e}")
 
-def get_data_transformer_object() -> Pipeline:
-    try:
-        robust_scaler = RobustScaler()
-        simple_imputer = SimpleImputer(strategy="constant", fill_value=0)
-        preprocessor = Pipeline(
-            steps=[
-                ("Imputer", simple_imputer),  # Replace missing values with zero
-                ("RobustScaler", robust_scaler)  # Scale features and handle outliers
-            ]
-        )
-        return preprocessor
-    except Exception as e:
-        raise Exception(f"Error in data transformation: {e}") from e
-
 
 @app.post("/predict")
 async def predict_route(request: Request, file: UploadFile = File(...)):
-    try:
-        # Check if the uploaded file is a CSV
-        if not file.filename.endswith(".csv"):
-            logging.error("Invalid file format. Expected CSV.")
-            return Response(content="Invalid file format. Please upload a CSV file.", status_code=400)
-
-        # Convert file to binary data
-        binary_file = await file.read()
-
-        # Use io.BytesIO to convert binary data to a file-like object
-        file_like_object = BytesIO(binary_file)
-
-         # Check if file is empty
-        if file_like_object.getbuffer().nbytes == 0:
-            logging.error("Uploaded file is empty.")
-            return Response(content="Uploaded file is empty.", status_code=400)
+        try:
+            if not file.filename.endswith(".csv"):
+                logging.error("Invalid file format. Expected CSV.")
+                return Response(content="Invalid file format. Please upload a CSV file.", status_code=400)
+            contents = file.file.read()
+            buffer = BytesIO(contents)
+            df = pd.read_csv(buffer)
+        except Exception as e:
+            logging.error(f"Failed to read CSV file: {e}")
+            return Response(content="Error reading the CSV file.", status_code=500)
         
 
         # Read the CSV file into a DataFrame
         try:
-            df = pd.read_csv(file_like_object)
             if df is None or df.empty:
                 logging.error("Uploaded file is empty or invalid.")
                 return Response(content="Uploaded file is empty or invalid.", status_code=400)
-            df=df.replace(['na', 'NaN', 'N/A', ''], np.nan, inplace=True)
+            if 'class' in df.columns:
+                df.drop(columns=["class"], inplace=True) # dropping the class label
+                df.replace(['na', 'NaN', 'N/A', ''], np.nan, inplace=True)
+              # Drop features with max null values
+                df.drop(['br_000','bq_000','bp_000','bo_000','ab_000','cr_000','bn_000','cd_000'] , inplace=True, errors='ignore')
     
         except Exception as e:
-            logging.error(f"Failed to read CSV file: {e}")
-            return Response(content="Error reading the CSV file.", status_code=500)
+            logging.error(f"Failed to replace N/A values: {e}")
+            return Response(content="Error replacing N/A values", status_code=500)
 
         try:
             # Drop the target column (if it exists) and apply transformation
             #input_features_df = df.drop(columns=["TARGET_COLUMN"], axis=1, errors='ignore')
-            preprocessor = get_data_transformer_object()
-            if preprocessor is None:
-                 logging.error("Failed to initialize data transformer object.")
-                 return Response(content="Error initializing data transformer.", status_code=500)
-            preprocessor_object = preprocessor.fit(df)
-            transformed_input_features = preprocessor_object.transform(df)
-            logging.info(f"Transformed input shape: {transformed_input_features.shape}")
+            preprocessor = joblib.load(r"artifact\01_09_2025_23_44_07\data_transformation\transformed_object\preprocessing.pkl")
+            expected_features = preprocessor.feature_names_in_  # For consistency
+
+        # Align columns with preprocessor
+            for col in expected_features:
+                if col not in df.columns:
+                    df[col] = np.nan  # Add missing columns
+
+        # Ensure the DataFrame has the correct columns in order
+            df = df[expected_features]
+
+        # Transform the input features
+
+            logging.info(f"Transformed input shape: {df.shape}")
         except Exception as e:
             logging.error(f"Failed to apply data transformation: {e}")
             return Response(content="Error applying data transformation.", status_code=500)
@@ -136,7 +127,8 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
 
         # Make predictions using the model
         try:
-            y_pred = model.predict(transformed_input_features)
+             sensor_model = SensorModel(preprocessor=preprocessor, model=model)  # Create instance of SensorModel
+             y_pred = sensor_model.predict(df)  
         except Exception as e:
             logging.error(f"Prediction failed: {e}")
             return Response(content="Error during prediction.", status_code=500)
@@ -145,11 +137,9 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
         df['predicted_column'] = y_pred
 
         # Convert DataFrame to HTML for the response
-        return Response(content=df.to_html(), media_type="text/html")
+        return Response(content=df.to_csv(), media_type="text/html")
+        
 
-    except Exception as e:
-        logging.error(f"Unexpected error: {e}")
-        return Response(content=f"Unexpected error occurred: {str(e)}", status_code=500)
-
+   
 if __name__=="__main__":
     app_run(app, host=APP_HOST, port=APP_PORT)

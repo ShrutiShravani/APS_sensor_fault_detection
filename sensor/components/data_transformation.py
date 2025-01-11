@@ -2,12 +2,13 @@ import sys
 
 import numpy as np
 import pandas as pd
-from imblearn.combine import SMOTETomek
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import RobustScaler
 from sklearn.pipeline import Pipeline
-
-
+from collections import Counter
+from imblearn.pipeline import Pipeline
 from sensor.constant.training_pipeline import TARGET_COLUMN
 from sensor.entity.artifact_entity import (
     DataTransformationArtifact,
@@ -75,7 +76,7 @@ class DataTransformation:
             #training dataframe
             input_feature_train_df = train_df.drop(columns=[TARGET_COLUMN], axis=1)
             target_feature_train_df = train_df[TARGET_COLUMN]
-            target_feature_train_df = target_feature_train_df.replace( TargetValueMapping().to_dict())
+            target_feature_train_df = target_feature_train_df.replace(TargetValueMapping().to_dict())
 
             #testing dataframe
             input_feature_test_df = test_df.drop(columns=[TARGET_COLUMN], axis=1)
@@ -86,17 +87,26 @@ class DataTransformation:
             transformed_input_train_feature = preprocessor_object.transform(input_feature_train_df)
             transformed_input_test_feature =preprocessor_object.transform(input_feature_test_df)
 
-            smt = SMOTETomek(random_state=42)
-
-            input_feature_train_final, target_feature_train_final = smt.fit_resample(
+            counter1 = Counter(target_feature_train_df)
+            counter2=Counter(target_feature_train_df)
+            print(counter1,counter2)
+            over=SMOTE(sampling_strategy=0.1)
+            under=RandomUnderSampler(sampling_strategy=0.5)
+            steps=[('o',over),('u',under)]
+            pipeline=Pipeline(steps=steps)
+ 
+            input_feature_train_final, target_feature_train_final = pipeline.fit_resample(
                 transformed_input_train_feature, target_feature_train_df
             )
 
             
-            input_feature_test_final, target_feature_test_final = smt.fit_resample(
+            input_feature_test_final, target_feature_test_final = pipeline.fit_resample(
                 transformed_input_test_feature, target_feature_test_df
             )
 
+            counter3 = Counter(target_feature_test_final)
+            counter4=Counter(target_feature_train_final)
+            print(counter3,counter4)
             train_arr = np.c_[input_feature_train_final, np.array(target_feature_train_final) ]
             test_arr = np.c_[input_feature_test_final, np.array(target_feature_test_final)]
 

@@ -137,7 +137,7 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
             y_pred_prob = sensor_model.predict_proba(input_arr)
 
         # Adjust threshold (for example, set it to 0.3)
-            threshold = 0.3
+            threshold = 0.005
             y_pred_class= (y_pred_prob[:, 1] > threshold).astype(int)
             target_encoder = TargetValueMapping()
             reverse_map = target_encoder.reverse_mapping()

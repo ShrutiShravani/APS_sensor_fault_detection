@@ -9,7 +9,11 @@ from xgboost import XGBClassifier
 from sensor.ml.metric.classification_metric import get_classification_score
 from sensor.ml.model.estimator import SensorModel
 from sensor.utils.main_utils import save_object,load_object
-from sklearn.metrics import f1_score,precision_score,recall_score,accuracy_score
+from sklearn.metrics import f1_score,precision_score,recall_score,accuracy_score,precision_recall_curve
+from numpy import mean
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.model_selection import RandomizedSearchCV
+
 class ModelTrainer:
 
     def __init__(self,model_trainer_config:ModelTrainerConfig,
@@ -22,20 +26,28 @@ class ModelTrainer:
 
     def train_model(self,x_train,y_train):
         try:
-            xgb_clf = XGBClassifier()
-            xgb_clf.fit(x_train,y_train)
-            return xgb_clf
+            max_depth = [5,10,15, 20, 25]
+            n_estimators = [10,30,50,80,100,250]
+            colsample_bytree = [0.3,0.5,0.7,1]
+            subsample = [0.5,0.5,0.7,1]
+            param = {'max_depth':max_depth,'n_estimators':n_estimators, 'colsample_bytree':colsample_bytree,'subsample':subsample}
+            clf = XGBClassifier(n_jobs=-1, random_state=42, scale_pos_weight = 1.7 )
+            tuning = RandomizedSearchCV(estimator=clf,param_distributions=param,cv=3,scoring='f1_macro',n_jobs=-1,return_train_score=True,verbose=10)
+
+           
+            tuning.fit(x_train,y_train)
+            best = tuning.best_params_
+            print(best)
+
+            # Best model with tuned hyperparameters
+            best_XGB_model = tuning.best_estimator_
+            calib_XGB = CalibratedClassifierCV(base_estimator=best_XGB_model, cv=5, method='sigmoid')
+            calib_XGB.fit(x_train,y_train)
+            return calib_XGB
         except Exception as e:
-            raise e
+            raise SensorException(e,sys)
         
-    def adjust_threshold(self,probabilities,threshold=0.5):
-        """
-        Adjust the threshold for classification. 
-        :param probabilities: The predicted probabilities for the positive class.
-        :param threshold: The threshold to classify as positive (default is 0.5).
-        :return: Adjusted predictions.
-        """
-        return (probabilities[:, 1] > threshold).astype(int)
+   
 
     
     def initiate_model_trainer(self)->ModelTrainerArtifact:
@@ -53,36 +65,41 @@ class ModelTrainer:
                 test_arr[:, :-1],
                 test_arr[:, -1],
             )
+            
 
             model = self.train_model(x_train, y_train)
             y_train_pred = model.predict(x_train)
             classification_train_metric =  get_classification_score(y_true=y_train, y_pred=y_train_pred)
-            acc = accuracy_score(y_train, y_train_pred) # Calculate Accuracy
-            f1 = f1_score(y_train, y_train_pred) # Calculate F1-score
-            precision = precision_score(y_train, y_train_pred) # Calculate Precision
-            recall = recall_score(y_train, y_train_pred)  # Calculate Recall
 
-            print(f"train_score:{acc,f1,precision,recall}")
+          
 
+            if classification_train_metric.f1_score<=self.model_trainer_config.expected_accuracy:
+                raise Exception("Trained model is not good to provide expected accuracy")
             
+           
             if classification_train_metric.f1_score<=self.model_trainer_config.expected_accuracy:
                 raise Exception("Trained model is not good to provide expected accuracy")
             
             y_test_pred = model.predict(x_test)
             classification_test_metric = get_classification_score(y_true=y_test, y_pred=y_test_pred)
 
-            acc = accuracy_score(y_test, y_test_pred) # Calculate Accuracy
-            f1 = f1_score(y_test, y_test_pred) # Calculate F1-score
-            precision = precision_score(y_test, y_test_pred) # Calculate Precision
-            recall = recall_score(y_test, y_test_pred)  # Calculate Recall
 
-            print(f"test_score:{acc,f1,precision,recall}")
 
             #Overfitting and Underfitting
             diff = abs(classification_train_metric.f1_score-classification_test_metric.f1_score)
             
             if diff>self.model_trainer_config.overfitting_underfitting_threshold:
                 raise Exception("Model is not good try to do more experimentation.")
+            
+            y_test_pred_prob= model.predict_proba(x_test)[:,1]
+
+            precision, recall, thresholds = precision_recall_curve(y_test,y_test_pred_prob)
+            def best_prob(precision, recall, thresholds):
+                 f1_scores = 2 * (precision[:-1] * recall[:-1]) / (precision[:-1] + recall[:-1])
+                 best_index = f1_scores.argmax()
+                 return thresholds[best_index]
+            best_threshold = best_prob(precision[:-1], recall[:-1], thresholds)
+            print(f"Best probability threshold: {best_threshold}")
 
             preprocessor = load_object(file_path=self.data_transformation_artifact.transformed_object_file_path)
             

@@ -2,8 +2,7 @@ import sys
 
 import numpy as np
 import pandas as pd
-from imblearn.over_sampling import SMOTE
-from imblearn.under_sampling import RandomUnderSampler
+from imblearn.combine import SMOTETomek
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import RobustScaler
 from sklearn.pipeline import Pipeline
@@ -19,7 +18,6 @@ from sensor.exception import SensorException
 from sensor.logger import logging
 from sensor.ml.model.estimator import TargetValueMapping
 from sensor.utils.main_utils import save_numpy_array_data, save_object
-
 
 
 
@@ -88,27 +86,29 @@ class DataTransformation:
             transformed_input_test_feature =preprocessor_object.transform(input_feature_test_df)
 
             counter1 = Counter(target_feature_train_df)
-            counter2=Counter(target_feature_train_df)
-            print(counter1,counter2)
-            over=SMOTE(sampling_strategy=0.1)
-            under=RandomUnderSampler(sampling_strategy=0.5)
-            steps=[('o',over),('u',under)]
-            pipeline=Pipeline(steps=steps)
+            print(counter1)
+    
+            
+            over = SMOTE(sampling_strategy=0.3)
+            under = RandomUnderSampler(sampling_strategy=0.5)
+            #smt = SMOTETomek(sampling_strategy="minority")
  
-            input_feature_train_final, target_feature_train_final = pipeline.fit_resample(
+            input_feature_train_final, target_feature_train_final = smt.fit_resample(
                 transformed_input_train_feature, target_feature_train_df
             )
-
-            
-            input_feature_test_final, target_feature_test_final = pipeline.fit_resample(
+            input_feature_test_final, target_feature_test_final = smt.fit_resample(
                 transformed_input_test_feature, target_feature_test_df
             )
+            counter2 = Counter(target_feature_train_final)
+            print(counter2)
+    
+        except Exception as e:
+            raise SensorException(e,sys)
 
-            counter3 = Counter(target_feature_test_final)
-            counter4=Counter(target_feature_train_final)
-            print(counter3,counter4)
+        try:
             train_arr = np.c_[input_feature_train_final, np.array(target_feature_train_final) ]
-            test_arr = np.c_[input_feature_test_final, np.array(target_feature_test_final)]
+            test_arr = np.c_[ input_feature_test_final, np.array(target_feature_test_final)]
+             
 
             #save numpy array data
             save_numpy_array_data(self.data_transformation_config.transformed_train_file_path, array=train_arr, )

@@ -2,7 +2,8 @@ import sys
 
 import numpy as np
 import pandas as pd
-from imblearn.combine import SMOTETomek
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler 
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import RobustScaler
 from sklearn.pipeline import Pipeline
@@ -61,6 +62,7 @@ class DataTransformation:
 
         except Exception as e:
             raise SensorException(e, sys) from e
+        
 
     
     def initiate_data_transformation(self,) -> DataTransformationArtifact:
@@ -68,7 +70,6 @@ class DataTransformation:
             
             train_df = DataTransformation.read_data(self.data_validation_artifact.valid_train_file_path)
             test_df = DataTransformation.read_data(self.data_validation_artifact.valid_test_file_path)
-            preprocessor = self.get_data_transformer_object()
 
 
             #training dataframe
@@ -80,30 +81,39 @@ class DataTransformation:
             input_feature_test_df = test_df.drop(columns=[TARGET_COLUMN], axis=1)
             target_feature_test_df = test_df[TARGET_COLUMN]
             target_feature_test_df = target_feature_test_df.replace(TargetValueMapping().to_dict())
-
+            
+            preprocessor = self.get_data_transformer_object()
             preprocessor_object = preprocessor.fit(input_feature_train_df)
-            transformed_input_train_feature = preprocessor_object.transform(input_feature_train_df)
-            transformed_input_test_feature =preprocessor_object.transform(input_feature_test_df)
+            input_feature_train_df  = preprocessor_object.transform(input_feature_train_df)
+            input_feature_test_df  =preprocessor_object.transform(input_feature_test_df)
+
 
             counter1 = Counter(target_feature_train_df)
             print(counter1)
+
     
-            
-            over = SMOTE(sampling_strategy=0.3)
-            under = RandomUnderSampler(sampling_strategy=0.5)
             #smt = SMOTETomek(sampling_strategy="minority")
- 
-            input_feature_train_final, target_feature_train_final = smt.fit_resample(
-                transformed_input_train_feature, target_feature_train_df
+            
+            over=SMOTE(sampling_strategy=0.4)
+            under=RandomUnderSampler(sampling_strategy=0.5)
+            steps=[('o',over),('u',under)]
+            pipeline=Pipeline(steps=steps)
+
+            input_feature_train_final, target_feature_train_final = pipeline.fit_resample(
+                 input_feature_train_df, target_feature_train_df
             )
-            input_feature_test_final, target_feature_test_final = smt.fit_resample(
-                transformed_input_test_feature, target_feature_test_df
+
+            input_feature_test_final, target_feature_test_final = pipeline.fit_resample(
+                 input_feature_test_df, target_feature_test_df
             )
+           
             counter2 = Counter(target_feature_train_final)
             print(counter2)
-    
+        
+
         except Exception as e:
             raise SensorException(e,sys)
+        
 
         try:
             train_arr = np.c_[input_feature_train_final, np.array(target_feature_train_final) ]

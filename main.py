@@ -107,7 +107,7 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
 
         # Ensure the DataFrame has the correct columns in order
             df = df[expected_features]
-            input_arr = preprocessor.transform(df) 
+          
 
         # Transform the input features
 
@@ -134,10 +134,10 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
         # Make predictions using the model
         try:
             sensor_model = SensorModel(preprocessor=preprocessor, model=model)  # Create instance of SensorModel
-            y_pred_prob = sensor_model.predict_proba(input_arr)
+            y_pred_prob = sensor_model.predict_proba(df[expected_features])
 
         # Adjust threshold (for example, set it to 0.3)
-            threshold =  0.00136
+            threshold =  0.0030
             y_pred_class= (y_pred_prob[:, 1] > threshold).astype(int)
             target_encoder = TargetValueMapping()
             reverse_map = target_encoder.reverse_mapping()

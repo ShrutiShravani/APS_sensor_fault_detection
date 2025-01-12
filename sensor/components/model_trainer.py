@@ -27,10 +27,12 @@ class ModelTrainer:
     def train_model(self,x_train,y_train):
         try:
             max_depth = [5,10,15, 20, 25]
+            min_child_weight= [1, 5, 10]
             n_estimators = [10,30,50,80,100,250]
             colsample_bytree = [0.3,0.5,0.7,1]
             subsample = [0.5,0.5,0.7,1]
-            param = {'max_depth':max_depth,'n_estimators':n_estimators, 'colsample_bytree':colsample_bytree,'subsample':subsample}
+        
+            param = {'max_depth':max_depth,'min_child_weight':min_child_weight,'n_estimators':n_estimators, 'colsample_bytree':colsample_bytree,'subsample':subsample}
             clf = XGBClassifier(n_jobs=-1, random_state=42, scale_pos_weight = 1.7 )
             tuning = RandomizedSearchCV(estimator=clf,param_distributions=param,cv=3,scoring='f1_macro',n_jobs=-1,return_train_score=True,verbose=10)
 
@@ -46,6 +48,7 @@ class ModelTrainer:
             return calib_XGB
         except Exception as e:
             raise SensorException(e,sys)
+        
         
    
 
@@ -83,14 +86,7 @@ class ModelTrainer:
             y_test_pred = model.predict(x_test)
             classification_test_metric = get_classification_score(y_true=y_test, y_pred=y_test_pred)
 
-
-
-            #Overfitting and Underfitting
-            diff = abs(classification_train_metric.f1_score-classification_test_metric.f1_score)
-            
-            if diff>self.model_trainer_config.overfitting_underfitting_threshold:
-                raise Exception("Model is not good try to do more experimentation.")
-            
+                     
             y_test_pred_prob= model.predict_proba(x_test)[:,1]
 
             precision, recall, thresholds = precision_recall_curve(y_test,y_test_pred_prob)
@@ -101,6 +97,15 @@ class ModelTrainer:
             best_threshold = best_prob(precision[:-1], recall[:-1], thresholds)
             print(f"Best probability threshold: {best_threshold}")
 
+
+
+            #Overfitting and Underfitting
+            diff = abs(classification_train_metric.f1_score-classification_test_metric.f1_score)
+            print(diff)
+            
+            if diff>self.model_trainer_config.overfitting_underfitting_threshold:
+                raise Exception("Model is not good try to do more experimentation.")
+            
             preprocessor = load_object(file_path=self.data_transformation_artifact.transformed_object_file_path)
             
             model_dir_path = os.path.dirname(self.model_trainer_config.trained_model_file_path)

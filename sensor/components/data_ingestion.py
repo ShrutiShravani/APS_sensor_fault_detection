@@ -34,6 +34,8 @@ class DataIngestion:
             return dataframe
         except  Exception as e:
             raise  SensorException(e,sys)
+        
+    
 
     def split_data_as_train_test(self, dataframe: DataFrame) -> None:
         """

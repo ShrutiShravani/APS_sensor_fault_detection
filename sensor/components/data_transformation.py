@@ -50,7 +50,7 @@ class DataTransformation:
     def get_data_transformer_object(cls)->Pipeline:
         try:
             robust_scaler = RobustScaler()
-            simple_imputer = SimpleImputer(strategy="constant", fill_value=0)
+            simple_imputer = SimpleImputer(strategy="median", fill_value=0)
             preprocessor = Pipeline(
                 steps=[
                     ("Imputer", simple_imputer), #replace missing values with zero
@@ -94,7 +94,7 @@ class DataTransformation:
     
             #smt = SMOTETomek(sampling_strategy="minority")
             
-            over=SMOTE(sampling_strategy=0.4)
+            over=SMOTE(sampling_strategy=0.5)
             under=RandomUnderSampler(sampling_strategy=0.5)
             steps=[('o',over),('u',under)]
             pipeline=Pipeline(steps=steps)

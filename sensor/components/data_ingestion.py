@@ -41,7 +41,7 @@ class DataIngestion:
         """
         Feature store dataset will be split into train and test file
         """
-
+        
         try:
             train_set, test_set = train_test_split(
                 dataframe, test_size=self.data_ingestion_config.train_test_split_ratio

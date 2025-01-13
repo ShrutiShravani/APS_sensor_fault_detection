@@ -17,6 +17,7 @@ class TrainPipeline:
     is_pipeline_running=False
     def __init__(self):
         self.training_pipeline_config = TrainingPipelineConfig()
+        self.s3_sync = S3Sync()
        
 
 
@@ -82,6 +83,7 @@ class TrainPipeline:
             return model_pusher_artifact
         except  Exception as e:
             raise  SensorException(e,sys)
+
         
     def run_pipeline(self):
         try:
@@ -94,6 +96,6 @@ class TrainPipeline:
             if not model_eval_artifact.is_model_accepted:
                 raise Exception("Trained model is not better than the best model")
             model_pusher_artifact = self.start_model_pusher(model_eval_artifact)
+        except  Exception as e:
             TrainPipeline.is_pipeline_running=False
-        except Exception as e:
-            raise SensorException(e,sys)
+            raise  SensorException(e,sys)

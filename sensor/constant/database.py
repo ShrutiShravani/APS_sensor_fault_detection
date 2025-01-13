@@ -1,2 +1,2 @@
 DATABASE_NAME = "shruti"
-COLLECTION_NAME="ssensor"
+COLLECTION_NAME="new_data"

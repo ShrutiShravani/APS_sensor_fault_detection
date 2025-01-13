@@ -25,7 +25,7 @@ import joblib
 from sensor.ml.model.estimator import SensorModel
 from sensor.entity.config_entity import DataTransformationConfig,TrainingPipelineConfig
 
-
+    
 app = FastAPI()
 origins = ["*"]
 
@@ -66,7 +66,6 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
         except Exception as e:
             logging.error(f"Failed to read CSV file: {e}")
             return Response(content="Error reading the CSV file.", status_code=500)
-        
 
         # Read the CSV file into a DataFrame
         try:
@@ -134,10 +133,10 @@ async def predict_route(request: Request, file: UploadFile = File(...)):
         # Make predictions using the model
         try:
             sensor_model = SensorModel(preprocessor=preprocessor, model=model)  # Create instance of SensorModel
-            y_pred_prob = sensor_model.predict_proba(df[expected_features])
+            y_pred_prob = sensor_model.predict_proba(df)
 
         # Adjust threshold (for example, set it to 0.3)
-            threshold =  0.0030
+            threshold =  0.0035
             y_pred_class= (y_pred_prob[:, 1] > threshold).astype(int)
             target_encoder = TargetValueMapping()
             reverse_map = target_encoder.reverse_mapping()

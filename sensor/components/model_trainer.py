@@ -5,7 +5,7 @@ from sensor.logger import logging
 from sensor.entity.artifact_entity import DataTransformationArtifact,ModelTrainerArtifact
 from sensor.entity.config_entity import ModelTrainerConfig
 import os,sys
-from xgboost import XGBClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sensor.ml.metric.classification_metric import get_classification_score
 from sensor.ml.model.estimator import SensorModel
 from sensor.utils.main_utils import save_object,load_object
@@ -26,14 +26,11 @@ class ModelTrainer:
 
     def train_model(self,x_train,y_train):
         try:
-            max_depth = [5,10,15, 20, 25]
-            min_child_weight= [1, 5, 10]
-            n_estimators = [10,30,50,80,100,250]
-            colsample_bytree = [0.3,0.5,0.7,1]
-            subsample = [0.5,0.5,0.7,1]
-        
-            param = {'max_depth':max_depth,'min_child_weight':min_child_weight,'n_estimators':n_estimators, 'colsample_bytree':colsample_bytree,'subsample':subsample}
-            clf = XGBClassifier(n_jobs=-1, random_state=42, scale_pos_weight = 1.7 )
+            max_depth = [5, 10,20, 50]
+            n_estimators = [10,25,50,80,100]
+            min_samples_split = [2,5,10,50]
+            param = {'max_depth':max_depth,'n_estimators':n_estimators, 'min_samples_split':min_samples_split}
+            clf =  RandomForestClassifier(class_weight = 'balanced' , random_state=42 )
             tuning = RandomizedSearchCV(estimator=clf,param_distributions=param,cv=3,scoring='f1_macro',n_jobs=-1,return_train_score=True,verbose=10)
 
            
